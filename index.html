@@ -23,12 +23,13 @@
       font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
       background: var(--bg);
       margin: 0;
-      min-height: 100vh;
+      height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 20px;
+      overflow: hidden; /* prevent jump when keyboard appears */
     }
 
     h1 {
@@ -36,6 +37,7 @@
       margin-bottom: 4px;
       font-weight: 600;
       text-align: center;
+      color: #000;
     }
 
     p.lead {
@@ -45,28 +47,66 @@
       text-align: center;
     }
 
+    .form-control {
+      border-radius: 0.6rem !important;
+      padding: 0.75rem .75rem;
+      height: 45px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+      background-color: #ffffff !important; /* always light */
+      color: #000 !important; /* always dark text */
+      border: 1px solid #ced4da;
+    }
+
     .form-control:focus {
       border-color: black !important;
       box-shadow: 0 0 0 2px rgba(0,0,0,0.06) !important;
     }
 
-    .form-control {
-      border-radius: 0.6rem !important;
-      padding: 0.75rem .75rem;
-      height: 45px;
-      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    .form-control:disabled {
+      background-color: #f1f3f5 !important;
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    label {
+      color: #000 !important; /* labels always dark */
     }
 
     .btn-primary {
       background: var(--accent);
       border: none;
-      border-radius: 999px; /* pill shape */
+      border-radius: 999px;
       font-weight: 600;
       height: 44px;
+      position: relative;
     }
 
     .btn-primary:active, .btn-primary:hover {
-      background-color: #1e4fd8;
+      background-color: #2563eb; /* keep constant */
+    }
+
+    /* Loading spinner inside login button */
+    .btn-primary.loading {
+      color: transparent !important;
+      pointer-events: none;
+    }
+
+    .btn-primary.loading::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 18px;
+      height: 18px;
+      margin: -9px 0 0 -9px;
+      border: 2px solid rgba(255,255,255,0.6);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     .skeleton {
@@ -107,17 +147,32 @@
       font-size: 13px;
       margin-top: 2px;
     }
+
+    /* "Create new account" constant look */
+    #toggleBtn {
+      color: var(--muted) !important;
+      font-weight: 500;
+      border: none !important;
+    }
+    #toggleBtn:hover, 
+    #toggleBtn:active, 
+    #toggleBtn:focus {
+      color: var(--muted) !important;
+      background: transparent !important;
+      text-decoration: none !important;
+      outline: none !important;
+    }
   </style>
 </head>
 <body>
-  <!-- Skeleton -->
+  <!-- Skeleton Loader -->
   <div id="skeleton" class="skeleton" aria-hidden="true">
     <div class="bar"></div>
     <div class="bar"></div>
     <div class="bar"></div>
   </div>
 
-  <!-- Main Auth Form -->
+  <!-- Auth Form -->
   <div id="content" style="display:none;">
     <h1 id="title">Welcome back</h1>
     <p class="lead">Sign in with your email</p>
@@ -149,9 +204,8 @@
     </div>
   </div>
 
-  <!-- Firebase Auth Logic -->
+  <!-- Firebase Auth -->
   <script type="module">
-    // Replace with your Firebase project details
     const firebaseConfig = {
       apiKey: "AIzaSyDZeKOp52YARhw7kn9KaVqkxSdm-pVFdkM",
       authDomain: "app-chatmo.firebaseapp.com",
@@ -169,7 +223,6 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
 
-    // Elements
     const skeleton = document.getElementById('skeleton');
     const content = document.getElementById('content');
     const title = document.getElementById('title');
@@ -182,7 +235,6 @@
 
     let mode = 'login';
 
-    // Mode toggle
     function setMode(m) {
       mode = m;
       if (mode === 'login') {
@@ -197,23 +249,23 @@
       clearErrors();
     }
 
-    // Show input-specific error
     function showFieldError(field, message) {
       field.classList.add('is-invalid');
       const feedback = field.nextElementSibling.nextElementSibling;
       feedback.textContent = message;
     }
 
-    // Clear all errors
     function clearErrors() {
-      [emailEl, passwordEl].forEach(el => {
-        el.classList.remove('is-invalid');
-      });
+      [emailEl, passwordEl].forEach(el => el.classList.remove('is-invalid'));
       emailError.textContent = '';
       passwordError.textContent = '';
     }
 
-    // Skeleton → show form
+    function setInputsDisabled(disabled) {
+      emailEl.disabled = disabled;
+      passwordEl.disabled = disabled;
+    }
+
     window.addEventListener('load', () => {
       setTimeout(() => {
         skeleton.style.display = 'none';
@@ -221,21 +273,15 @@
       }, 1500);
     });
 
-    // Input listeners to remove errors on typing
-    [emailEl, passwordEl].forEach(input => {
-      input.addEventListener('input', clearErrors);
-    });
+    [emailEl, passwordEl].forEach(input => input.addEventListener('input', clearErrors));
 
-    // Send token to Flutter
     async function sendIdTokenToHost(user) {
       const token = await user.getIdToken();
       if (window.AuthChannel?.postMessage) window.AuthChannel.postMessage(token);
       else if (window.flutter_inappwebview?.callHandler) window.flutter_inappwebview.callHandler('onAuthToken', token);
       else window.postMessage(JSON.stringify({ type: 'AUTH_TOKEN', token }), '*');
-      console.log('ID Token:', token);
     }
 
-    // Auth button
     primaryBtn.addEventListener('click', async () => {
       clearErrors();
       const email = emailEl.value.trim();
@@ -244,8 +290,10 @@
       if (!email) return showFieldError(emailEl, 'Email is required');
       if (!password) return showFieldError(passwordEl, 'Password is required');
 
+      // Disable inputs + button
+      setInputsDisabled(true);
       primaryBtn.disabled = true;
-      primaryBtn.textContent = mode === 'login' ? 'Logging in…' : 'Creating…';
+      primaryBtn.classList.add('loading'); // show spinner
 
       try {
         let userCred;
@@ -264,7 +312,10 @@
         else if (msg.includes('email-already-in-use')) showFieldError(emailEl, 'Email already in use');
         else showFieldError(emailEl, 'Authentication failed');
       } finally {
+        // Re-enable inputs + button
+        setInputsDisabled(false);
         primaryBtn.disabled = false;
+        primaryBtn.classList.remove('loading'); // hide spinner
         primaryBtn.textContent = mode === 'login' ? 'Login' : 'Create account';
       }
     });
@@ -279,4 +330,6 @@
   </script>
 </body>
 </html>
+
+
 
