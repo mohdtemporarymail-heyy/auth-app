@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MyApp — Sign in</title>
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #f8f9fb;
+      --muted: #6b7280;
+      --accent: #2563eb;
+    }
+
+    body {
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: var(--bg);
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 22px;
+      margin-bottom: 4px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    p.lead {
+      color: var(--muted);
+      margin-bottom: 24px;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .form-control:focus {
+      border-color: black !important;
+      box-shadow: 0 0 0 2px rgba(0,0,0,0.06) !important;
+    }
+
+    .form-control {
+      border-radius: 0.6rem !important;
+      padding: 0.75rem .75rem;
+      height: 45px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border: none;
+      border-radius: 999px; /* pill shape */
+      font-weight: 600;
+      height: 44px;
+    }
+
+    .btn-primary:active, .btn-primary:hover {
+      background-color: #1e4fd8;
+    }
+
+    .skeleton {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .skeleton .bar {
+      height: 45px;
+      border-radius: 10px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.6), rgba(245,245,245,0.9), rgba(255,255,255,0.6));
+      background-size: 200% 100%;
+      animation: shimmer 1.2s linear infinite;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.03);
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    .small-note {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    #content {
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .invalid-feedback {
+      font-size: 13px;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Skeleton -->
+  <div id="skeleton" class="skeleton" aria-hidden="true">
+    <div class="bar"></div>
+    <div class="bar"></div>
+    <div class="bar"></div>
+  </div>
+
+  <!-- Main Auth Form -->
+  <div id="content" style="display:none;">
+    <h1 id="title">Welcome back</h1>
+    <p class="lead">Sign in with your email</p>
+
+    <form id="authForm" novalidate>
+      <div class="form-floating mb-2">
+        <input type="email" id="email" class="form-control" placeholder="name@example.com" autocomplete="email" />
+        <label for="email">Email address</label>
+        <div id="emailError" class="invalid-feedback"></div>
+      </div>
+
+      <div class="form-floating mb-2">
+        <input type="password" id="password" class="form-control" placeholder="Password" autocomplete="current-password" />
+        <label for="password">Password</label>
+        <div id="passwordError" class="invalid-feedback"></div>
+      </div>
+
+      <div class="d-grid gap-2 mb-2">
+        <button id="primaryBtn" class="btn btn-primary btn-lg" type="button">Login</button>
+      </div>
+    </form>
+
+    <div class="text-center">
+      <button id="toggleBtn" class="btn btn-link small-note">Create new account</button>
+    </div>
+
+    <div class="small-note text-center">
+      By continuing you agree to our Terms & Privacy.
+    </div>
+  </div>
+
+  <!-- Firebase Auth Logic -->
+  <script type="module">
+    // Replace with your Firebase project details
+    const firebaseConfig = {
+      apiKey: "AIzaSyDZeKOp52YARhw7kn9KaVqkxSdm-pVFdkM",
+      authDomain: "app-chatmo.firebaseapp.com",
+      projectId: "app-chatmo"
+    };
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      createUserWithEmailAndPassword,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    // Elements
+    const skeleton = document.getElementById('skeleton');
+    const content = document.getElementById('content');
+    const title = document.getElementById('title');
+    const emailEl = document.getElementById('email');
+    const passwordEl = document.getElementById('password');
+    const emailError = document.getElementById('emailError');
+    const passwordError = document.getElementById('passwordError');
+    const primaryBtn = document.getElementById('primaryBtn');
+    const toggleBtn = document.getElementById('toggleBtn');
+
+    let mode = 'login';
+
+    // Mode toggle
+    function setMode(m) {
+      mode = m;
+      if (mode === 'login') {
+        title.textContent = 'Welcome back';
+        primaryBtn.textContent = 'Login';
+        toggleBtn.textContent = 'Create new account';
+      } else {
+        title.textContent = 'Create account';
+        primaryBtn.textContent = 'Create account';
+        toggleBtn.textContent = 'Already have an account? Log in';
+      }
+      clearErrors();
+    }
+
+    // Show input-specific error
+    function showFieldError(field, message) {
+      field.classList.add('is-invalid');
+      const feedback = field.nextElementSibling.nextElementSibling;
+      feedback.textContent = message;
+    }
+
+    // Clear all errors
+    function clearErrors() {
+      [emailEl, passwordEl].forEach(el => {
+        el.classList.remove('is-invalid');
+      });
+      emailError.textContent = '';
+      passwordError.textContent = '';
+    }
+
+    // Skeleton → show form
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        skeleton.style.display = 'none';
+        content.style.display = 'block';
+      }, 1500);
+    });
+
+    // Input listeners to remove errors on typing
+    [emailEl, passwordEl].forEach(input => {
+      input.addEventListener('input', clearErrors);
+    });
+
+    // Send token to Flutter
+    async function sendIdTokenToHost(user) {
+      const token = await user.getIdToken();
+      if (window.AuthChannel?.postMessage) window.AuthChannel.postMessage(token);
+      else if (window.flutter_inappwebview?.callHandler) window.flutter_inappwebview.callHandler('onAuthToken', token);
+      else window.postMessage(JSON.stringify({ type: 'AUTH_TOKEN', token }), '*');
+      console.log('ID Token:', token);
+    }
+
+    // Auth button
+    primaryBtn.addEventListener('click', async () => {
+      clearErrors();
+      const email = emailEl.value.trim();
+      const password = passwordEl.value.trim();
+
+      if (!email) return showFieldError(emailEl, 'Email is required');
+      if (!password) return showFieldError(passwordEl, 'Password is required');
+
+      primaryBtn.disabled = true;
+      primaryBtn.textContent = mode === 'login' ? 'Logging in…' : 'Creating…';
+
+      try {
+        let userCred;
+        if (mode === 'login') {
+          userCred = await signInWithEmailAndPassword(auth, email, password);
+        } else {
+          userCred = await createUserWithEmailAndPassword(auth, email, password);
+        }
+        await sendIdTokenToHost(userCred.user);
+      } catch (err) {
+        console.error(err);
+        const msg = err.message || '';
+        if (msg.includes('invalid-email')) showFieldError(emailEl, 'Invalid email address');
+        else if (msg.includes('wrong-password')) showFieldError(passwordEl, 'Incorrect password');
+        else if (msg.includes('user-not-found')) showFieldError(emailEl, 'No account found for this email');
+        else if (msg.includes('email-already-in-use')) showFieldError(emailEl, 'Email already in use');
+        else showFieldError(emailEl, 'Authentication failed');
+      } finally {
+        primaryBtn.disabled = false;
+        primaryBtn.textContent = mode === 'login' ? 'Login' : 'Create account';
+      }
+    });
+
+    toggleBtn.addEventListener('click', () => setMode(mode === 'login' ? 'signup' : 'login'));
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) sendIdTokenToHost(user);
+    });
+
+    setMode('login');
+  </script>
+</body>
+</html>
+
